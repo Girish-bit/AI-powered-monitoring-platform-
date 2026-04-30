@@ -25,6 +25,30 @@ const articles = [
     readTime: "4 min",
     image: "https://images.unsplash.com/photo-1633265485732-d73c307edce4?auto=format&fit=crop&q=80&w=800",
     description: "What your social media accounts actually say about you to potential threats."
+  },
+  {
+    id: 4,
+    title: "The Anatomy of a Phishing Attack",
+    category: "Scams",
+    readTime: "6 min",
+    image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800",
+    description: "Breakdown of how malicious links are disguised as legitimate business emails."
+  },
+  {
+    id: 5,
+    title: "AI-Powered Harassment",
+    category: "AI Trends",
+    readTime: "10 min",
+    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=800",
+    description: "How bad actors are using deepfakes and LLMs to automate social engineering."
+  },
+  {
+    id: 6,
+    title: "Securing Your Personal Data",
+    category: "Basics",
+    readTime: "3 min",
+    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800",
+    description: "Essential checklist for enabling 2FA and checking your data breach status."
   }
 ];
 

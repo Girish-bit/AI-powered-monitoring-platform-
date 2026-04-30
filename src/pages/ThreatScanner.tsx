@@ -16,8 +16,10 @@ import {
   Camera
 } from 'lucide-react';
 import { analyzeIncident, analyzeImage, ThreatAnalysis } from '../services/geminiService';
-import { cn } from '../lib/utils';
+import { cn, handleFirestoreError, OperationType } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { db, auth } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 type ScanMode = 'TEXT' | 'LINK' | 'IMAGE';
 
@@ -30,21 +32,40 @@ export default function ThreatScanner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleScan = async () => {
+    if (!auth.currentUser) return;
     setIsScanning(true);
     let analysis: ThreatAnalysis;
     
-    if (mode === 'IMAGE' && selectedImage) {
-      analysis = await analyzeImage(selectedImage);
-    } else {
-      analysis = await analyzeIncident(content);
-    }
-    
-    setResult(analysis);
-    setIsScanning(false);
-    
-    // Simulate "Preventative Action" if critical
-    if (analysis.riskLevel === 'CRITICAL' || analysis.riskLevel === 'HIGH') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      if (mode === 'IMAGE' && selectedImage) {
+        analysis = await analyzeImage(selectedImage);
+      } else {
+        analysis = await analyzeIncident(content);
+      }
+      
+      setResult(analysis);
+
+      // Persist to Firestore
+      const incidentPath = `users/${auth.currentUser.uid}/incidents`;
+      await addDoc(collection(db, incidentPath), {
+        userId: auth.currentUser.uid,
+        type: mode,
+        content: mode === 'IMAGE' ? '[IMAGE_NODE]' : content,
+        riskLevel: analysis.riskLevel,
+        category: analysis.category,
+        explanation: analysis.explanation,
+        timestamp: serverTimestamp()
+      });
+
+      // Simulate "Preventative Action" if critical
+      if (analysis.riskLevel === 'CRITICAL' || analysis.riskLevel === 'HIGH') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } catch (error) {
+      console.error("Scan/Persist failed:", error);
+      handleFirestoreError(error, OperationType.WRITE, `users/${auth.currentUser.uid}/incidents`);
+    } finally {
+      setIsScanning(false);
     }
   };
 

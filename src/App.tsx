@@ -1,18 +1,27 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { 
+  useState, 
+  useEffect 
+} from 'react';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route, 
+  Link, 
+  useLocation 
+} from 'react-router-dom';
 import { 
   Shield, 
   LayoutDashboard, 
   Search, 
   BookOpen, 
   AlertTriangle, 
-  Settings, 
   Bell,
   Menu,
-  X,
   Lock,
-  ChevronRight
+  Loader2
 } from 'lucide-react';
-import { useState } from 'react';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './lib/firebase';
 import { cn } from './lib/utils';
 import Dashboard from './pages/Dashboard';
 import ThreatScanner from './pages/ThreatScanner';
@@ -39,8 +48,12 @@ function NavItem({ to, icon: Icon, label, active, onClick }: { to: string, icon:
   );
 }
 
-function Sidebar({ isOpen, setIsOpen, onLogout }: { isOpen: boolean, setIsOpen: (o: boolean) => void, onLogout: () => void }) {
+function Sidebar({ isOpen, setIsOpen, user }: { isOpen: boolean, setIsOpen: (o: boolean) => void, user: any }) {
   const location = useLocation();
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
 
   return (
     <>
@@ -60,7 +73,7 @@ function Sidebar({ isOpen, setIsOpen, onLogout }: { isOpen: boolean, setIsOpen: 
           <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-900/20">
             <Shield className="text-white" size={24} />
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">GuardianAI</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">Deep Guardian</h1>
         </div>
 
         <nav className="flex flex-col gap-2 flex-1">
@@ -71,17 +84,17 @@ function Sidebar({ isOpen, setIsOpen, onLogout }: { isOpen: boolean, setIsOpen: 
         </nav>
 
         <div className="mt-auto pt-8 border-t border-zinc-800 flex flex-col gap-2">
-          <button 
-            onClick={onLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <Lock size={20} />
-            <span className="font-medium">Lock Session</span>
-          </button>
-          <div className="px-4 py-3 flex items-center gap-3 text-zinc-500 text-sm">
-            <Lock size={16} />
-            <span>Encrypted Session</span>
+          <div className="px-4 py-2 mb-2">
+            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Operator</p>
+            <p className="text-xs text-zinc-400 truncate font-mono">{user?.email}</p>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors font-bold text-sm uppercase tracking-widest"
+          >
+            <Lock size={18} />
+            <span>Lock Session</span>
+          </button>
         </div>
       </aside>
     </>
@@ -111,7 +124,7 @@ function Header({ setSidebarOpen }: { setSidebarOpen: (o: boolean) => void }) {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-zinc-950" />
         </button>
         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-xs font-bold text-white uppercase border border-white/10">
-          AD
+          OP
         </div>
       </div>
     </header>
@@ -120,12 +133,30 @@ function Header({ setSidebarOpen }: { setSidebarOpen: (o: boolean) => void }) {
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!isAuthenticated) {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="text-blue-500 animate-spin" size={48} />
+        <p className="text-zinc-500 font-mono text-sm animate-pulse uppercase tracking-[0.3em]">Authenticating Node...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <Router>
-        <Login onLogin={() => setIsAuthenticated(true)} />
+        <Login />
       </Router>
     );
   }
@@ -133,7 +164,7 @@ export default function App() {
   return (
     <Router>
       <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-blue-500/30">
-        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} onLogout={() => setIsAuthenticated(false)} />
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} user={user} />
         
         <div className="flex flex-col min-h-screen">
           <Header setSidebarOpen={setSidebarOpen} />

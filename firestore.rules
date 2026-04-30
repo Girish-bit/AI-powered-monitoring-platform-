@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- User Validation ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.keys().size() <= 6 &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             (data.get('createdAt', request.time) == request.time);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && 
+                      // Identity integrity: email and uid can't change
+                      incoming().uid == existing().uid &&
+                      incoming().email == existing().email &&
+                      (
+                        // Action: Profile Update
+                        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'lastActive']) ||
+                        // Action: Login Sync (No content changed except lastActive)
+                        incoming().diff(existing()).affectedKeys().hasOnly(['lastActive']) ||
+                        // Action: Null-op (All fields match existing)
+                        incoming().diff(existing()).affectedKeys().size() == 0
+                      ) &&
+                      incoming().lastActive == request.time;
+      
+      // --- Incidents Validation ---
+      function isValidIncident(data) {
+        return data.keys().hasAll(['userId', 'type', 'riskLevel', 'timestamp']) &&
+               data.userId == request.auth.uid &&
+               data.type in ['TEXT', 'LINK', 'IMAGE'] &&
+               data.riskLevel in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] &&
+               data.timestamp == request.time;
+      }
+
+      match /incidents/{incidentId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidIncident(incoming()) && isValidId(incidentId);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
